@@ -10,6 +10,19 @@ import backtrader as bt
 
 class TestStrategy(bt.Strategy):
 
+    def select_stock(self,dataframe):
+        '''
+        # using models to calculate the n stocks with highest return
+        :param dataframe: all stocks with X days
+        :return: a list of return sorted (id and name)
+        '''
+    def optimization(self,stocks_history_data):
+        '''
+
+        :param stocks_history_data:
+        :return: weight of selected stocks
+        '''
+
     def log(self, txt, dt=None):
         ''' Logging function fot this strategy'''
         dt = dt or self.datas[0].datetime.date(0)
@@ -17,6 +30,19 @@ class TestStrategy(bt.Strategy):
 
     def __init__(self):
         # Keep a reference to the "close" line in the data[0] dataseries
+
+        """
+        everyday we can get all data updated after market ends
+        we then can predict a list of stock with highest return next day or next week or next month
+        we sell or the stocks we hold at the end of last period
+        and buy a new set of stocks and hold for a period (day, week,month) according to our strategy
+
+        """
+        self.size = list()
+        self.stock_list = list()
+
+
+
         self.dataclose = list()
         for i in range(2):
 
