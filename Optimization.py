@@ -8,6 +8,7 @@ Created on Sun Nov 30 20:50:05 2020
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
+import yfinance as yf
 
 def cal_return(df):
     """
@@ -141,7 +142,19 @@ def plot_efficient_frontier(stock_returns):
     plt.legend() # Showing which plot belongs to which model
     plt.show()
 
-
-
+if __name__ == "__main__":
+    XLB = yf.download('XLB', start='2015-01-01', end='2016-01-01')
+    XLE = yf.download('XLE', start='2015-01-01', end='2016-01-01')
+    XLF = yf.download('XLF', start='2015-01-01', end='2016-01-01')
+    XLB = XLB['Adj Close']
+    XLE = XLE['Adj Close']
+    XLF = XLF['Adj Close']
+    price = pd.concat([XLB, XLE, XLF], axis=1)
+    price.columns = ['XLB', 'XLE', 'XLF']
+    
+    stock_return = cal_return(price)
+    plot_data(stock_return)
+    plot_efficient_frontier(stock_return)
+    
 
     
