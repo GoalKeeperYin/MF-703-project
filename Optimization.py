@@ -119,13 +119,43 @@ def efficient_frontier(stock_returns):
     
     return a, portfolio_var
 
+def find_optimal(stock_returns, r=0):
+    """
+
+    Parameters
+    ----------
+    stock_returns : Pandas DataFrame
+        A DataFrame of stock returns, using dates as index, 
+        tickers as columns.
+    r : float, optional
+        Risk-free interest rate. The default is 0.
+
+    Returns
+    -------
+    The optimal required return and portfolio variance, which lead to the
+    largest sharpe ratio.
+
+    """
+    a, portfolio_var = efficient_frontier(stock_returns)
+    n = len(a)
+    max_sharpe = (a[0]-r) / np.sqrt(portfolio_var[0])
+    for i in range(n): # sharpe ratio will first increase and then decrease
+        tmp_sharpe = (a[i]-r) / np.sqrt(portfolio_var[i])
+        if tmp_sharpe > max_sharpe:
+            max_sharpe = tmp_sharpe
+        else: # sharpe ratio has reached its maximum
+            index = i-1
+            break
+        
+    return a[index], portfolio_var[index]
+
 def plot_efficient_frontier(stock_returns):
     """
 
     Parameters
     ----------
     stock_returns : Pandas DataFrame
-        A DataFrame of stock stock returns, using dates as index, 
+        A DataFrame of stock returns, using dates as index, 
         tickers as columns. One can also take slices of it in order to realize
         stock selection.
 
@@ -142,6 +172,71 @@ def plot_efficient_frontier(stock_returns):
     plt.legend() # Showing which plot belongs to which model
     plt.show()
 
+def compare_to_equal(stock_returns, test_periods=1000):
+    """
+
+    Parameters
+    ----------
+    stock_returns : Pandas DataFrame
+        A DataFrame of stock returns, using dates as index, 
+        tickers as columns. One can also take slices of it in order to realize
+        stock selection.
+
+    Returns
+    -------
+    None. Comparing Makowitz strategy to equal weights strategy by plots and
+    calculation of certain indicators.
+
+    """
+    T, N = stock_returns.shape
+    
+    realized_return_1 = np.zeros(test_periods) # Makowitz weights
+    realized_return_2 = np.zeros(test_periods) # equal weights
+    turnover = 0
+    a_optimal, portfolio_var_optimal = find_optimal(stock_returns)
+    
+    for i in range(test_periods):
+        historical_data = stock_returns[:T-test_periods+i]
+        mu = historical_data.mean().values
+        sigma = historical_data.cov().values
+        w, portfolio_var = Makowitz_weights(mu, sigma, a_optimal)
+        
+        realized_returns = stock_returns.values[T-test_periods+i]
+        realized_return_1[i] = np.dot(w, realized_returns)
+        realized_return_2[i] = np.dot(np.ones(N)/N, realized_returns)
+        
+        if i == 0:
+            w_old = w
+        else:
+            turnover += np.absolute(w - w_old).sum()/T
+        w_old = w # update the version of weights
+    
+    plt.figure(2)
+    plt.plot(realized_return_1.cumsum(), label="Makowitz")
+    plt.plot(realized_return_2.cumsum(), label="Equal weights")
+    plt.legend()
+    plt.show()
+    
+    print("Realized return and variance of strategy using Markowitz weights")
+    print(realized_return_1.mean(), realized_return_1.var())
+    print("Realized return and variance of strategy using equal weights")
+    print(realized_return_2.mean(), realized_return_2.var())
+    print("\n")
+    print("Sharpe ratio of strategy using Markowitz weights")
+    print(realized_return_1.mean()/realized_return_1.std())
+    print("Sharpe ratio of strategy using equal weights")
+    print(realized_return_2.mean()/realized_return_2.std())
+    print("\n")
+    # print("Certainty equivalent return of strategy using Markowitz weights")
+    # print(realized_return_1.mean() - realized_return_1.var()/2.0)
+    # print("Certainty equivalent return of strategy using equal weights")
+    # print(realized_return_2.mean() - realized_return_2.var()/2.0)
+    # print("\n")
+    print("Turnover of strategy using Markowitz weights")
+    print(turnover)
+    print("Turnover of strategy using equal weights")
+    print("0")
+
 if __name__ == "__main__":
     XLB = yf.download('XLB', start='2015-01-01', end='2016-01-01')
     XLE = yf.download('XLE', start='2015-01-01', end='2016-01-01')
@@ -155,6 +250,7 @@ if __name__ == "__main__":
     stock_return = cal_return(price)
     plot_data(stock_return)
     plot_efficient_frontier(stock_return)
+    compare_to_equal(stock_return, 100)
     
 
     
