@@ -2,6 +2,7 @@ from __future__ import (absolute_import, division, print_function,
                         unicode_literals)
 
 from Optimization import *
+# from prediction import *
 
 import datetime  # For datetime objects
 import os.path  # To manage paths
@@ -12,42 +13,35 @@ import backtrader as bt
 
 
 class TestStrategy(bt.Strategy):
-    def prediction(self, stock_name, start_date, end_date, predict_date):
-        """
-
-        :param stock_name: every stock name
-        :param start_date: start data of input for model
-        :param end_date:  end date of input for model
-        :param predict_date: tell model to predict which date
-        :return: the predicted return
-        """
-        predicted_return = 0
-        return predicted_return
-
-    def select_stock(self, dataframe):
+    def select_stock(self, df, num):
         '''
         # using models to calculate the n stocks with highest return
         :param dataframe: all stocks with X days
         :return: a list of return sorted (id and name)
         '''
+        return_mean = df.mean().sort_values()[:num]
+        return return_mean.index.tolist()
 
-    def weight_of_portfolio(self, stock_index_list,start_date,end_date):
+    def weight_of_portfolio(self, stock_index_list, start_date, end_date):
         '''
-
+        stock_index_list = ["XLE","SPY","XLB"]
         :param stock_index_list: which stock to select
         :return: the weight of everystock
         '''
         selected_stock_df = list()
-        for stock_index in stock_index_list:
-            stock_data = pd.read_csv(self.stock_list[stock_index])['Adj Close'].loc[start_date:end_date]
+        for stock_index in range(len(stock_index_list)):
+            stock_data = pd.read_csv(stock_index_list[stock_index])
+            stock_data = stock_data.set_index('Date')
+            stock_data = stock_data['Adj Close'].loc[start_date:end_date]
             selected_stock_df.append(stock_data)
-        price_df = pd.concat(selected_stock_df, axis=1)
-        '''
-        price.columns = ['XLB', 'XLE', 'XLF']
-        '''
-        stock_return = cal_return(price)
-        weight,variance = find_optimal(stock_return)
+        stock_return = pd.concat(selected_stock_df, axis=1)
+        stock_return.columns = stock_index_list
+        print(stock_index_list)
 
+
+
+        a, variance, weight = mkt_port(stock_return,r=0.06)
+        print(weight)
         return weight
 
     def log(self, txt, dt=None):
@@ -69,21 +63,40 @@ class TestStrategy(bt.Strategy):
         # filename:["XLB.csv","SPY.csv","XLF.csv"] contains all files to be used
         self.stock_list = ["XLB.csv", "SPY.csv", "XLF.csv"]
         # prediction
-        self.next_return_list = list()
+        start_date = '2012-01-03'
+        end_date = '2012-12-31'
+        start_date_1 = '2012/01/01'
+        end_date_1 = '2012/12/31'
+
+        '''
         for stock in self.stock_list:
+            sample_stock_data(stock,df1,df2,df3,df4,df5,df7,start_date_1,end_date_1)
             next_return = self.prediction(stock)
             self.next_return_list.append(next_return)
-        self.stock_index_list = self.select_stock(self.next_return_list)
-        weight_of_stocks = self.weight_of_portfolio(self.stock_index_list)
+        '''
+        # test
+        selected_stock_df = list()
+        for stock_index in range(len(self.stock_list)):
+            stock_data = pd.read_csv(self.stock_list[stock_index])
+            stock_data = stock_data.set_index('Date')
+            stock_data = stock_data['Adj Close'].loc[start_date:end_date]
+            selected_stock_df.append(stock_data)
+        self.next_return_list = pd.concat(selected_stock_df, axis=1)
+        self.next_return_list.columns = self.stock_list
+
+        self.stock_index_list = self.select_stock(self.next_return_list, 3)
+        print(self.stock_index_list)
+
+        self.weight_of_stocks = self.weight_of_portfolio(self.stock_index_list, start_date, end_date)
 
         # the strategy of buying stocks given the total money we hold and optimal weights
         # how to manage data between the class methods "prediction" "weight_of_prediction"
         # how to buy in the class methods "buy"
-        self.dataclose = list()
-        for i in range(2):
-            self.dataclose.append(self.datas[0].close)
-            self.dataclose.append(self.datas[1].close)
-            self.dataclose.append(self.datas[2].close)
+        # self.dataclose = list()
+        # for i in range(2):
+        #    self.dataclose.append(self.datas[0].close)
+        #    self.dataclose.append(self.datas[1].close)
+        #    self.dataclose.append(self.datas[2].close)
 
     def next(self):
         # Simply log the closing price of the series from the reference
@@ -91,23 +104,40 @@ class TestStrategy(bt.Strategy):
         for i, d in enumerate(self.datas):
 
             dt, dn = self.datetime.date(), d._name
-            self.log('%s,Close, %.2f' % (d._name, self.dataclose[i][0]))
+            self.log('%s,Close, %.2f' % (d._name, self.datas[i][0]))
             pos = self.getposition(d).size
-            if not pos:  # no market / no orders
-                self.buy(data=d, size=1000)
-                print('buy', d._name)
+            stock_name = dn+".csv"
+            print("cash", self.broker.get_cash())
+            if not pos and (stock_name in self.stock_index_list):  # no market / no orders
+                index_of_stock_in_list = self.stock_index_list.index(stock_name)
+                shares = int(0.5 * abs(self.broker.cash * (self.weight_of_stocks[index_of_stock_in_list]) / d[0]))
+                print("id","shares",index_of_stock_in_list,shares)
+                if self.weight_of_stocks[index_of_stock_in_list] < 0:
+                    self.sell(data=d, size=shares)
+                    print('sell', d._name, shares)
+                    print(stock_name,self.weight_of_stocks[index_of_stock_in_list])
+                else:
+                    self.buy(data=d, size=shares)
+                    print('buy', d._name, shares)
+                    print(stock_name, self.weight_of_stocks[index_of_stock_in_list])
             else:
-                print('hold', d._name, self.getposition(d).size)
+                print('hold', d._name, self.getposition(d).size, self.getposition(d).size * d[0])
 
 
 if __name__ == '__main__':
     # Create a cerebro entity
+
     cerebro = bt.Cerebro()
+
+
     datalist = [
         ('SPY.csv', 'SPY'),
         ('XLB.csv', 'XLB'),
         ('XLF.csv', 'XLF'),
+        ('XLE.csv', 'XLE')
     ]
+
+
     cerebro.addstrategy(TestStrategy)
 
     # Datas are in a subfolder of the samples. Need to find where the script is
@@ -121,20 +151,22 @@ if __name__ == '__main__':
         data = bt.feeds.YahooFinanceCSVData(
             dataname=datalist[i][0],
             # Do not pass values before this date
-            fromdate=datetime.datetime(2012, 1, 1),
+            fromdate=datetime.datetime(2013, 1, 3),
             # Do not pass values after this date
-            todate=datetime.datetime(2012, 12, 31),
+            todate=datetime.datetime(2013, 12, 31),
             reverse=False)
         cerebro.adddata(data, name=datalist[i][1])
 
     # Set our desired cash start
     cerebro.broker.setcash(10000000.0)
-
+    cerebro.addobserver(bt.observers.Broker)
     # Print out the starting conditions
     print('Starting Portfolio Value: %.2f' % cerebro.broker.getvalue())
-
-    # Run over everything
-    cerebro.run()
-
-    # Print out the final result
     print('Final Portfolio Value: %.2f' % cerebro.broker.getvalue())
+    # Run over everything
+    cerebro.run(stdstats=False)
+    cerebro.addobserver(bt.observers.Broker)
+    print('Final Portfolio Value: %.2f' % cerebro.broker.getvalue())
+    cerebro.plot()
+    # Print out the final result
+
