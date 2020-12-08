@@ -119,7 +119,7 @@ def efficient_frontier(stock_returns):
     
     return a, portfolio_var
 
-def find_optimal(stock_returns, r=0):
+def mkt_port(stock_returns, r=0):
     """
 
     Parameters
@@ -132,8 +132,8 @@ def find_optimal(stock_returns, r=0):
 
     Returns
     -------
-    The optimal required return and portfolio variance, which lead to the
-    largest sharpe ratio.
+    The required return, variance and weights of market portfolio, which has 
+    the largest sharpe ratio.
 
     """
     a, portfolio_var = efficient_frontier(stock_returns)
@@ -141,14 +141,21 @@ def find_optimal(stock_returns, r=0):
     max_sharpe = (a[0]-r) / np.sqrt(portfolio_var[0])
     index = 0
     for i in range(1, n): # sharpe ratio will first increase and then decrease
+    
         tmp_sharpe = (a[i]-r) / np.sqrt(portfolio_var[i])
         if tmp_sharpe > max_sharpe:
             max_sharpe = tmp_sharpe
+            index = i
         else: # sharpe ratio has reached its maximum
             index = i-1
             break
         
-    return a[index], portfolio_var[index]
+    mkt_a = a[index]
+    mu = stock_returns.mean().values
+    sigma = stock_returns.cov().values
+    mkt_w, mkt_var = Makowitz_weights(mu, sigma, mkt_a)
+        
+    return mkt_a, mkt_var, mkt_w
 
 def plot_efficient_frontier(stock_returns):
     """
@@ -194,13 +201,13 @@ def compare_to_equal(stock_returns, test_periods=1000):
     realized_return_1 = np.zeros(test_periods) # Makowitz weights
     realized_return_2 = np.zeros(test_periods) # equal weights
     turnover = 0
-    a_optimal, portfolio_var_optimal = find_optimal(stock_returns)
+    mkt_a, mkt_var, mkt_w = mkt_port(stock_returns)
     
     for i in range(test_periods):
         historical_data = stock_returns[:T-test_periods+i]
         mu = historical_data.mean().values
         sigma = historical_data.cov().values
-        w, portfolio_var = Makowitz_weights(mu, sigma, a_optimal)
+        w, portfolio_var = Makowitz_weights(mu, sigma, mkt_a)
         
         realized_returns = stock_returns.values[T-test_periods+i]
         realized_return_1[i] = np.dot(w, realized_returns)
