@@ -40,7 +40,7 @@ def plot_data(df):
     Returns
     -------
     Plot the data, whether in prices or returns, to view data anomalies.
-    There are 10 columns in df by default..
+    There are 10 columns in df by default.
 
     """
     # layout specifies that the plots will listed in 4 rows and 3 columns.
@@ -139,7 +139,8 @@ def find_optimal(stock_returns, r=0):
     a, portfolio_var = efficient_frontier(stock_returns)
     n = len(a)
     max_sharpe = (a[0]-r) / np.sqrt(portfolio_var[0])
-    for i in range(n): # sharpe ratio will first increase and then decrease
+    index = 0
+    for i in range(1, n): # sharpe ratio will first increase and then decrease
         tmp_sharpe = (a[i]-r) / np.sqrt(portfolio_var[i])
         if tmp_sharpe > max_sharpe:
             max_sharpe = tmp_sharpe
