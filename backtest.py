@@ -2,6 +2,14 @@
 # back test model
 
 import numpy as np
+import pandas as pd
+import seaborn as sn
+import matplotlib.pyplot as plt
+import math
+import prediction
+import Optimization
+import random
+
 
 class BackTestStrategy:
     
@@ -109,19 +117,71 @@ class RebalanceEveryday(BackTestStrategy):
     def getFinalProfit(self):
         self.totalprofit = self.fvalue - self.value_0        
         print("Total profit of portfolio is %10.3f" %self.totalprofit)
+
+def corr_between_stock(s,pick):
+    '''
+    
+
+    Parameters
+    ----------
+    s : pd.dataframe
+        Row: days
+        Col: every stock
+    pick : list of string
+        Names of what stocks are picked.
+
+    Returns
+    -------
+    corrMatrix_pick : TYPE
+        DESCRIPTION.
+
+    '''
+    corrMatrix = s.corr()
+    corrMatrix_pick = pd.DataFrame(index = pick, columns = pick)
+    for i in range(len(pick)):
+        for j in range(len(pick)):
+            corrMatrix_pick.at[pick[i],pick[j]] = corrMatrix.loc[pick[i],pick[j]]
+
+    return corrMatrix_pick
+
+def sigma_portfolio(s,w):
+    '''
+    
+
+    Parameters
+    ----------
+    s : pd.dataframe
+        Row: days
+        Col: every stock
+    w : list
+        DESCRIPTION.
+
+    Returns
+    -------
+    std : TYPE
+        DESCRIPTION.
+
+    '''
+    cov = s.cov()
+    std = math.sqrt(cov.dot(w).dot(w))
+    return std
+    
+
+
 if __name__ == '__main__':
 
-    name = "test1"
-    name2 = "test2"
-    value_start = 1000
-    weight = np.array([[0.1],[0.2],[0.3],[0.4]])
-    stock_price = np.random.rand(4,5)
+
+    pf_value = pd.read_csv('pf_value(1).csv')[0:30]
+    pf_value_array = pf_value.to_numpy()
+    dprofit = np.delete(np.roll(pf_value_array,-1)-pf_value_array,-1)
+    plt.plot(dprofit) 
+    plt.xlabel('Days')
+    plt.ylabel('Daily profit')
+    plt.title('Daily profit of portfolio')
+    totprofit = pf_value_array[-1]-pf_value_array[0]
+    dprofit = np.array([dprofit]).transpose()
+    dreturn_rate_annu = (1+np.true_divide(dprofit,pf_value_array[0:-1]))**250 - 1
+    total_return_rate_annu = ((1+totprofit/pf_value_array[0])**(250/30) - 1)*1.25
+    sharpratio = (total_return_rate_annu - 0.02)/dreturn_rate_annu.std()/10
     
-    a = LongAndHold(name,value_start,weight,stock_price)
-    a.getVolume()
-    a.getFinalValue()
-    a.getProfit()
     
-    weight2 = np.array([[0.1,0.2,0.1,0,1],[0.2,0.3,0.4,0.5,0],[0.3,0.5,0.2,0.5,0],[0.4,0,0.3,0,0]])
-    b = RebalanceEveryday(name2,value_start,weight2,stock_price)
-    b.getVolumeAndValue()
