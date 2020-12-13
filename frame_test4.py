@@ -2,8 +2,7 @@ from __future__ import (absolute_import, division, print_function,
                         unicode_literals)
 
 from Optimization import *
-import backtrader.analyzers as btanalyzers
-# from prediction import *
+from prediction import *
 
 import datetime  # For datetime objects
 import os.path  # To manage paths
@@ -13,7 +12,20 @@ import sys  # To find out the script name (in argv[0])
 import backtrader as bt
 import datetime
 
+
 class TestStrategy(bt.Strategy):
+    def predict_return(self,df1,df2,df3,df4,df5,df6,df7,start_date,end_date):
+        re_list = list()
+        stock_name_list = list()
+        for i in range(df1.shape[0]):
+            stock_data_factors, stock_name = sample_stock_data(i,df1,df2,df3,df4,df5,df6,df7,start_date, end_date)
+            stock_name_list.append(stock_name)
+            predicted_return = prediction(stock_data_factors,5,i)
+            df_predicted_return = pd.DataFrame(predicted_return)
+            re_list.append(df_predicted_return)
+        re_list = pd.concat(re_list)
+        re_list.colunms = stock_name_list
+        return re_list
 
     def select_stock(self, df, num):
         '''
@@ -54,29 +66,10 @@ class TestStrategy(bt.Strategy):
         # filename:["XLB.csv","SPY.csv","XLF.csv"] contains all files to be used
 
         # prediciton part
-        self.stock_list = ['GILD.O',
- 'AAPL.O',
- 'STZ.N',
- 'TPR.N',
- 'GRMN.O',
- 'GD.N',
- 'COF.N',
- 'SPGI.N',
- 'LHX.N',
- 'MNST.O',
- 'LMT.N',
- 'AVB.N',
- 'ILMN.O',
- 'NVDA.O',
- 'GLW.N',
- 'UAL.O',
- 'YUM.N',
- 'NOC.N',
- 'GM.N',
- 'MCO.N']
+        # self.stock_list = ['YUM.N', 'ZBH.N', 'AAP.N']
         # prediction
-        start_date = '2010/1/4'
-        end_date = '2019/12/25'
+        start_date = '2010/1/11'
+        end_date = '2010/2/4'
         start_date_1 = '2012/01/01'
         end_date_1 = '2012/12/31'
 
@@ -87,13 +80,29 @@ class TestStrategy(bt.Strategy):
             self.next_return_list.append(next_return)
         '''
         # test
+        '''
         selected_stock_df = list()
+        '''
         price = pd.read_csv("Price.csv")
         price = price.set_index("Date")
-        price = price.loc[start_date:end_date]
+        # price = price.loc[start_date:end_date]
         self.price = price[self.stock_list]
-        self.stock_return = cal_return(self.price)
-        self.stock_index_list = self.select_stock(self.stock_return, 5)
+        self.stock_return_all = cal_return(self.price)
+        self.stock_return = self.stock_return.loc[start_date,end_date]
+
+
+        self.df1 = pd.read_csv('factors1/成交量.csv', encoding='gbk', low_memory=False)
+        self.df2 = pd.read_csv('factors1//振幅.csv', encoding='gbk', low_memory=False)
+        self.df3 = pd.read_csv('factors1//换手率.csv', encoding='gbk', low_memory=False)
+        self.df4 = pd.read_csv('factors1//涨跌幅.csv', encoding='gbk', low_memory=False)
+        self.df5 = pd.read_csv('factors1//最低价.csv', encoding='gbk', low_memory=False)
+        self.df6 = pd.read_csv('factors1//最高价.csv', encoding='gbk', low_memory=False)
+        self.df7 = pd.read_csv('factors1//收盘价.csv', encoding='gbk', low_memory=False)
+        self.stock_return_prediction= self.predict_return(self.df1,self.df2,self.df3,self.df4,self.df5,self.df6,self.df7,start_date,end_date)
+
+
+
+        self.stock_index_list = self.select_stock(self.stock_return_prediction, 2)
         self.stock_return_needed = self.stock_return[self.stock_index_list]
 
         self.weight_of_stocks = self.weight_of_portfolio(self.stock_return_needed)
@@ -106,27 +115,39 @@ class TestStrategy(bt.Strategy):
         #    self.dataclose.append(self.datas[0].close)
         #    self.dataclose.append(self.datas[1].close)
         #    self.dataclose.append(self.datas[2].close)
-        self.pf_value = list()
+
     def next(self):
         # Simply log the closing price of the series from the reference
         rebalance_period = 30
-        start_date = datetime.datetime.strptime('2010-01-01', '%Y-%m-%d').date()
-        self.pf_value.append(self.broker.get_value())
+        start_date = datetime.datetime.strptime('2010-01-11', '%Y-%m-%d').date()
+
 
         for i, d in enumerate(self.datas):
-            #print(i)
+            # print(i)
             dt, dn = self.datetime.date(), d._name
             # self.log('%s,Close, %.2f' % (d._name, self.datas[i][0]))
             pos = self.getposition(d).size
-            #print("stock_name",dn )
+            # print("stock_name",dn )
             stock_name = dn
             # print("cash", self.broker.get_cash())
-            delta = (dt-start_date)%datetime.timedelta(days=rebalance_period)
+            delta = (dt - start_date) % datetime.timedelta(days=rebalance_period)
             # return weight and stock list
+            prediction_end_date = '{d.year}/{d.month}/{d.day}'.format(d=dt)
+            prediction_start_date = '{d.year}/{d.month}/{d.day}'.format(d=start_date)
+            if delta == datetime.timedelta(days=1):
+                self.stock_return = self.predict_return(self.df1, self.df2, self.df3, self.df4, self.df5, self.df6,
+                                                        self.df7,
+                                                        prediction_start_date, prediction_end_date)
 
-            if not pos and (stock_name in self.stock_index_list) and delta == datetime.timedelta(days=0):  # no market / no orders
+                self.stock_index_list = self.select_stock(self.stock_return, 2)
+                self.stock_return_needed = self.stock_return[self.stock_index_list]
+                self.weight_of_stocks = self.weight_of_portfolio(self.stock_return_needed)
+
+            if not pos and (stock_name in self.stock_index_list) and delta == datetime.timedelta(
+                    days=0):  # no market / no orders
                 index_of_stock_in_list = self.stock_index_list.index(stock_name)
-                shares = int(0.9 * abs(self.broker.cash * (self.weight_of_stocks[index_of_stock_in_list]) / self.datas[i][0]))
+                shares = int(
+                    0.3 * abs(self.broker.cash * (self.weight_of_stocks[index_of_stock_in_list]) / self.datas[i][0]))
                 print("id", "shares", index_of_stock_in_list, shares)
                 if self.weight_of_stocks[index_of_stock_in_list] < 0:
                     self.sell(data=d, size=shares)
@@ -146,19 +167,15 @@ class TestStrategy(bt.Strategy):
                     print('sell-liquidation', d._name)
                     print(stock_name, pos)
 
+            # else:
+            # print('hold', d._name, self.getposition(d).size, self.getposition(d).size * d[0])
 
-            #else:
-                #print('hold', d._name, self.getposition(d).size, self.getposition(d).size * d[0])
-    def stop(self):
-        df = pd.DataFrame(self.pf_value)
-        df.to_csv("pf_value.csv", index=False, sep=',')
-        print(self.pf_value)
 
 class customdataloader(bt.feeds.PandasData):
     params = (
         ('datetime', None),
         ('close', 0),
-        ('open',0),
+        ('open', 0),
         ('high', 0),
         ('low', 0),
 
@@ -171,7 +188,6 @@ if __name__ == '__main__':
     cerebro = bt.Cerebro()
     cerebro.addstrategy(TestStrategy)
 
-
     price = pd.read_csv("Price.csv")
     price = price.fillna(0)
     price['Date'] = pd.to_datetime(price.Date)
@@ -181,8 +197,6 @@ if __name__ == '__main__':
     for i in range(len(stock_name)):
         datalist.append(stock_name[i])
 
-
-
     # Datas are in a subfolder of the samples. Need to find where the script is
     # because it could have been called from anywhere
     # modpath = os.path.dirname(os.path.abspath(sys.argv[0]))
@@ -191,21 +205,22 @@ if __name__ == '__main__':
     # Create a Data Feed
     # Add the Data Feed to Cerebro
     print(datalist)
-    #for i in range(1,len(stock_name)):
-        #print(price[['Date',stock_name[i]]])
+    # for i in range(1,len(stock_name)):
+    # print(price[['Date',stock_name[i]]])
 
     for i in range(len(stock_name)):
         name = datalist[i]
-        dataframe = price[['Date',name]]
+        dataframe = price[['Date', name]]
         print(name)
         if i < 5:
             print(dataframe)
         # dataframe.columns = range(dataframe.shape[1])
         # dataframe = pd.DataFrame(price.iloc[:,i])
         # print(dataframe)
-        #data = customdataloader(dataname=dataframe,fromdate=datetime.datetime(2013, 1, 3),todate=datetime.datetime(2013, 12, 31)) #
+        # data = customdataloader(dataname=dataframe,fromdate=datetime.datetime(2013, 1, 3),todate=datetime.datetime(2013, 12, 31)) #
         data = bt.feeds.PandasData(dataname=dataframe, datetime='Date', open=name, high=name, low=name,
-                                      close=name,volume=None,openinterest=None,fromdate=datetime.datetime(2013, 1, 3),todate=datetime.datetime(2013, 12, 31))
+                                   close=name, volume=None, openinterest=None, fromdate=datetime.datetime(2013, 1, 3),
+                                   todate=datetime.datetime(2013, 12, 31))
         cerebro.adddata(data, name=datalist[i])
 
     # Set our desired cash start
@@ -214,11 +229,8 @@ if __name__ == '__main__':
     print('Starting Portfolio Value: %.2f' % cerebro.broker.getvalue())
     # Run over everything
     # cerebro.addobserver(bt.observers.Broker)
-    cerebro.addobserver(bt.observers.DrawDown)
-    cerebro.addanalyzer(btanalyzers.SharpeRatio, _name='mysharpe')
-    result = cerebro.run()
+    cerebro.run()
+
     print('Final Portfolio Value: %.2f' % cerebro.broker.getvalue())
-    thestrat = result[0]
-    print('Sharpe Ratio:', thestrat.analyzers.mysharpe.get_analysis())
     # cerebro.plot()
     # Print out the final result

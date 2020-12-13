@@ -34,15 +34,14 @@ class TestStrategy(bt.Strategy):
             stock_data = stock_data.set_index('Date')
             stock_data = stock_data['Adj Close'].loc[start_date:end_date]
             selected_stock_df.append(stock_data)
-        stock_return = pd.concat(selected_stock_df, axis=1)
-        stock_return.columns = stock_index_list
+        stock_price = pd.concat(selected_stock_df, axis=1)
+        stock_price.columns = stock_index_list
+        stock_return_needed = cal_return(stock_price)
         print(stock_index_list)
 
-
-
-        a, variance, weight = mkt_port(stock_return,r=0.06)
-        print(weight)
-        return weight
+        a, variance, w = mkt_port(stock_return_needed, r=0.06)
+        print(w)
+        return w
 
     def log(self, txt, dt=None):
         ''' Logging function fot this strategy'''
@@ -81,10 +80,10 @@ class TestStrategy(bt.Strategy):
             stock_data = stock_data.set_index('Date')
             stock_data = stock_data['Adj Close'].loc[start_date:end_date]
             selected_stock_df.append(stock_data)
-        self.next_return_list = pd.concat(selected_stock_df, axis=1)
-        self.next_return_list.columns = self.stock_list
-
-        self.stock_index_list = self.select_stock(self.next_return_list, 3)
+        self.price_list = pd.concat(selected_stock_df, axis=1)
+        self.price_list.columns = self.stock_list
+        print(self.price_list)
+        self.stock_index_list = self.select_stock(self.price_list, 3)
         print(self.stock_index_list)
 
         self.weight_of_stocks = self.weight_of_portfolio(self.stock_index_list, start_date, end_date)
@@ -100,22 +99,21 @@ class TestStrategy(bt.Strategy):
 
     def next(self):
         # Simply log the closing price of the series from the reference
-
         for i, d in enumerate(self.datas):
 
             dt, dn = self.datetime.date(), d._name
             self.log('%s,Close, %.2f' % (d._name, self.datas[i][0]))
             pos = self.getposition(d).size
-            stock_name = dn+".csv"
+            stock_name = dn + ".csv"
             print("cash", self.broker.get_cash())
             if not pos and (stock_name in self.stock_index_list):  # no market / no orders
                 index_of_stock_in_list = self.stock_index_list.index(stock_name)
-                shares = int(0.5 * abs(self.broker.cash * (self.weight_of_stocks[index_of_stock_in_list]) / d[0]))
-                print("id","shares",index_of_stock_in_list,shares)
+                shares = int(0.3 * abs(self.broker.cash * (self.weight_of_stocks[index_of_stock_in_list]) / d[0]))
+                print("id", "shares", index_of_stock_in_list, shares)
                 if self.weight_of_stocks[index_of_stock_in_list] < 0:
                     self.sell(data=d, size=shares)
                     print('sell', d._name, shares)
-                    print(stock_name,self.weight_of_stocks[index_of_stock_in_list])
+                    print(stock_name, self.weight_of_stocks[index_of_stock_in_list])
                 else:
                     self.buy(data=d, size=shares)
                     print('buy', d._name, shares)
@@ -129,14 +127,12 @@ if __name__ == '__main__':
 
     cerebro = bt.Cerebro()
 
-
     datalist = [
         ('SPY.csv', 'SPY'),
         ('XLB.csv', 'XLB'),
         ('XLF.csv', 'XLF'),
         ('XLE.csv', 'XLE')
     ]
-
 
     cerebro.addstrategy(TestStrategy)
 
@@ -159,14 +155,13 @@ if __name__ == '__main__':
 
     # Set our desired cash start
     cerebro.broker.setcash(10000000.0)
-    cerebro.addobserver(bt.observers.Broker)
     # Print out the starting conditions
     print('Starting Portfolio Value: %.2f' % cerebro.broker.getvalue())
-    print('Final Portfolio Value: %.2f' % cerebro.broker.getvalue())
+
     # Run over everything
-    cerebro.run(stdstats=False)
     cerebro.addobserver(bt.observers.Broker)
+    cerebro.run(stdstats=False)
+
     print('Final Portfolio Value: %.2f' % cerebro.broker.getvalue())
     cerebro.plot()
     # Print out the final result
-

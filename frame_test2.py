@@ -13,6 +13,7 @@ import backtrader as bt
 
 
 class TestStrategy(bt.Strategy):
+
     def select_stock(self, df, num):
         '''
         # using models to calculate the n stocks with highest return

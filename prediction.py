@@ -12,15 +12,15 @@ from keras.models import load_model
 
 
 def sample_stock_data(i,df1,df2,df3,df4,df5,df6,df7, start_date, end_date):
-    date = [column for column in df1][4:]
-    data1 = df1.iloc[i,4:]
-    data2 = df2.iloc[i,4:]
-    data3 = df3.iloc[i,4:]
-    data4 = df4.iloc[i,4:]
-    data5 = df5.iloc[i,4:]
-    data6 = df6.iloc[i,4:]
-    data7 = df7.iloc[i,4:]
-
+    date = [column for column in df1][1:]
+    data1 = df1.iloc[i,1:]
+    data2 = df2.iloc[i,1:]
+    data3 = df3.iloc[i,1:]
+    data4 = df4.iloc[i,1:]
+    data5 = df5.iloc[i,1:]
+    data6 = df6.iloc[i,1:]
+    data7 = df7.iloc[i,1:]
+    stock_name = df1.iloc[i:0]
     data = pd.DataFrame({
         'date': date,
         '成交量': list((data1).fillna(np.mean(data1))),
@@ -30,16 +30,16 @@ def sample_stock_data(i,df1,df2,df3,df4,df5,df6,df7, start_date, end_date):
         '最低价': list((data5).fillna(np.mean(data5))),
         '最高价': list((data6).fillna(np.mean(data6))),
         '收盘价': list((data7).fillna(np.mean(data7))),
-        '收盘价': list((data7).fillna(np.mean(data7)))
+        '收盘价2': list((data7).fillna(np.mean(data7)))
     })
     data.set_index(["date"], inplace=True)
 
     data = data.loc[start_date:end_date]
 
-    return data
+    return data,stock_name
 
 
-def prediction(data):
+def prediction(data,window,i):
     """
 
     :param stock_name: every stock name
@@ -49,7 +49,7 @@ def prediction(data):
     :return: the predicted return
     """
     predicted_return = 0
-    model = load_model("/content/drive/MyDrive/Colab Notebooks/1.h5")
+    model = load_model("Models/"+str(i+1)+".h5")
 
     min_max_scaler = preprocessing.MinMaxScaler()
     df0 = min_max_scaler.fit_transform(data)
@@ -59,7 +59,9 @@ def prediction(data):
     amount_of_features = len(df.columns)
     print(amount_of_features)
     result = list()
-    result.append(data)
+    sequence_length = window
+    for index in range(len(data) - sequence_length):  # 循环 数据长度-时间窗长度 次
+        result.append(data[index: index + sequence_length])  # 第i行到i+5
 
     stock_history_data = np.array(result)
     Stock_history_data = np.reshape(stock_history_data,
